@@ -25,7 +25,8 @@ contract RockPaperScissors {
 	bytes32 constant PAPER = 0xea923ca2cdda6b54f4fb2bf6a063e5a59a6369ca4c4ae2c4ce02a147b3036a21;
 	bytes32 constant SCISSORS = 0x389a2d4e358d901bfdf22245f32b4b0a401cc16a4b92155a2ee5da98273dad9a;
 
-	// price of creating a game in Wei, per player
+	address owner;
+	// price of creating a game in Wei, per player, set by the contract owner
 	uint public gameCreationCost;
 
 	struct PlayerStatusStruct {
@@ -63,6 +64,7 @@ contract RockPaperScissors {
         // playing can't be free
 		require(_gameCreationCost > 0);
 
+		owner = msg.sender;
 		gameCreationCost = _gameCreationCost;
 	}
 
