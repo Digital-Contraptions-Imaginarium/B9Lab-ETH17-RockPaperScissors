@@ -53,6 +53,7 @@ contract RockPaperScissors {
 
 	event LogPlayerDeclares(string gameName, address playerAddress);
 	event LogPlayerReveals(string gameName, address playerAddress, string move);
+	// note that winnerAddress is zero if the match is even
 	event LogWinner(string gameName, address winnerAddress);
 	event LogWithdrawal(address playerAddress, uint balance);
 
@@ -132,8 +133,10 @@ contract RockPaperScissors {
 		return(true);
 	}
 
-	// any of the two players can call this, to identify the winner and trigger the payment of
-	// the prize
+	// any of the two players can call this, to identify the winner and trigger
+	// the assignment of the prize; note that this function does not do
+	// the actual ether transfer, so not to penalise the loser with the gas
+	// cost, if she is the caller
 	function playerChecks(string _gameName)
 		public
 		returns(bool)
@@ -143,7 +146,7 @@ contract RockPaperScissors {
 		// requires nobody to have checked for the winner yet
 		require(!games[_gameNameHash].checkedForWinner);
 		// the caller is actually one of the players
-		require(games[_gameNameHash].players[msg.sender].encryptedMove != bytes32(0));
+		require(games[_gameNameHash].players[msg.sender].move != bytes32(0));
 		// can't check for the winner until both players have revealed their move
 		require((games[_gameNameHash].players[games[_gameNameHash].player1].move != 0x0) &&
 			    (games[_gameNameHash].players[games[_gameNameHash].player2].move != 0x0));
@@ -177,7 +180,7 @@ contract RockPaperScissors {
 		//       thanks :-D
 		balances[winner] += (even ? uint(1) : uint(2)) * gameCreationCost;
 		balances[theOtherPlayer] += (even ? uint(1) : uint(0)) * gameCreationCost;
-		LogWinner(_gameName, winner);
+		LogWinner(_gameName, even ? address(0) : winner);
 		return(true);
 	}
 
