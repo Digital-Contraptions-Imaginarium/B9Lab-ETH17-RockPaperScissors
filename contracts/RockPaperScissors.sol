@@ -6,6 +6,9 @@ contract RockPaperScissors {
 	//       This is would also cater for the case where a player calculates the hash of her move
 	//       wrong, or forgets her key.
 
+	// TODO: when moving to a more recent version of Solidity (>=0.4.16),
+	//       change the constant functions into view / pure
+
 	// For testing, these are "rock", "paper" and "scissors" keccak256'ed against keys
 	// "foo" and "bar" respectively:
 	// - rock
@@ -69,6 +72,62 @@ contract RockPaperScissors {
 		gameCreationCost = _gameCreationCost;
 	}
 
+	// returns true if the specified game is full
+	function isGameFull(string _gameName)
+		public
+		constant
+		returns(bool)
+	{
+		bytes32 _gameNameHash = keccak256(_gameName);
+		return((games[_gameNameHash].player1 == address(0)) ||
+		       (games[_gameNameHash].player2 == address(0)));
+	}
+
+	// returns true if msg.sender is one of the specified game's players
+	function isPlayerKnown(string _gameName)
+		public
+		constant
+		returns(bool)
+	{
+		return(games[keccak256(_gameName)].players[msg.sender].encryptedMove != 0x0);
+	}
+
+	// returns true if both players in a specified game have declared their
+	// secret move
+	function haveBothPlayersDeclared(string _gameName)
+		public
+		constant
+		returns(bool)
+	{
+		bytes32 _gameNameHash = keccak256(_gameName);
+		return((games[_gameNameHash].players[games[_gameNameHash].player1].encryptedMove != 0x0) &&
+			   (games[_gameNameHash].players[games[_gameNameHash].player2].encryptedMove != 0x0));
+	}
+
+	// returns true if both players in a specified game have revealed their
+	// move
+	function haveBothPlayersRevealed(string _gameName)
+		public
+		constant
+		returns(bool)
+	{
+		bytes32 _gameNameHash = keccak256(_gameName);
+		return((games[_gameNameHash].players[games[_gameNameHash].player1].move != 0x0) &&
+			   (games[_gameNameHash].players[games[_gameNameHash].player2].move != 0x0));
+	}
+
+	// returns true if the specified keccak256 corresponds to the keccak256
+	// of "rock", "paper" or "scissors"
+	function isAllowedMove(bytes32 _moveHash)
+		public
+		constant
+		returns(bool)
+	{
+		return((_moveHash == ROCK) ||
+		       (_moveHash == PAPER) ||
+		       (_moveHash == SCISSORS));
+	}
+
 	// TODO: what if two different sets of players choose the same game name?
 	// By calling the playerDeclares function, a player creates a new game or
 	// joins a pre-existing one, and makes her payment. _encryptedMove is the
@@ -83,8 +142,7 @@ contract RockPaperScissors {
 		// need to pay the right price
 		require(msg.value == gameCreationCost);
 		// can't join the game if two players have joined already
-		require((games[_gameNameHash].player1 == address(0)) ||
-		        (games[_gameNameHash].player2 == address(0)));
+		require(!isGameFull(_gameName));
 		// can't play vs yourself
 		require(msg.sender != games[_gameNameHash].player1);
 
@@ -92,10 +150,8 @@ contract RockPaperScissors {
         games[_gameNameHash].checkedForWinner = false;
         // store the new player's address
 		if(games[_gameNameHash].player1 == address(0)) {
-			// first player to play
 			games[_gameNameHash].player1 = msg.sender;
 		} else {
-			// second player to play
 			games[_gameNameHash].player2 = msg.sender;
 		}
         // save the encrypted move, for the reveal later
@@ -112,19 +168,16 @@ contract RockPaperScissors {
 		bytes32 _moveHash = keccak256(_move);
 
 		// the caller is one of the known players
-		require(games[_gameNameHash].players[msg.sender].encryptedMove != 0x0);
+		require(isPlayerKnown(_gameName));
         // the caller has not revealed already (don't waste gas!)
         require(games[_gameNameHash].players[msg.sender].move == 0x0);
 		// the player can't reveal her move until everybody has declared it
 		// first
 		// TODO: won't this waste the player's gas if she keeps trying? Do I
 		//       need to care?
-		require((games[_gameNameHash].players[games[_gameNameHash].player1].encryptedMove != 0x0) &&
-		        (games[_gameNameHash].players[games[_gameNameHash].player2].encryptedMove != 0x0));
+		require(haveBothPlayersDeclared(_gameName));
 		// _move is one of "rock", "paper" and "scissors"
-		require((_moveHash == ROCK) ||
-		        (_moveHash == PAPER) ||
-		        (_moveHash == SCISSORS));
+		require(isAllowedMove(_moveHash));
 		// the player has not cheated in declaring her original move
 		require(games[_gameNameHash].players[msg.sender].encryptedMove == keccak256(_move, _key));
 
@@ -146,10 +199,9 @@ contract RockPaperScissors {
 		// requires nobody to have checked for the winner yet
 		require(!games[_gameNameHash].checkedForWinner);
 		// the caller is actually one of the players
-		require(games[_gameNameHash].players[msg.sender].move != bytes32(0));
+		require(isPlayerKnown(_gameName));
 		// can't check for the winner until both players have revealed their move
-		require((games[_gameNameHash].players[games[_gameNameHash].player1].move != 0x0) &&
-			    (games[_gameNameHash].players[games[_gameNameHash].player2].move != 0x0));
+		require(haveBothPlayersRevealed(_gameName));
 
 		// prevents re-entry
 		games[_gameNameHash].checkedForWinner = true;
