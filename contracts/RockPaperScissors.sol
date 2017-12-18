@@ -54,6 +54,7 @@ contract RockPaperScissors {
     // the gas for it)
 	mapping(address => uint) public balances;
 
+	event LogGameCreated(string gameName, address playerAddress);
 	event LogPlayerDeclares(string gameName, address playerAddress);
 	event LogPlayerReveals(string gameName, address playerAddress, string move);
 	// note that winnerAddress is zero if the match is even
@@ -75,7 +76,7 @@ contract RockPaperScissors {
 	// returns true if the specified game is full
 	function isGameFull(string _gameName)
 		public
-		constant
+		constant // should be view
 		returns(bool)
 	{
 		bytes32 _gameNameHash = keccak256(_gameName);
@@ -86,7 +87,7 @@ contract RockPaperScissors {
 	// returns true if msg.sender is one of the specified game's players
 	function isPlayerKnown(string _gameName)
 		public
-		constant
+		constant // should be view
 		returns(bool)
 	{
 		return(games[keccak256(_gameName)].players[msg.sender].encryptedMove != 0x0);
@@ -96,7 +97,7 @@ contract RockPaperScissors {
 	// secret move
 	function haveBothPlayersDeclared(string _gameName)
 		public
-		constant
+		constant // should be view
 		returns(bool)
 	{
 		bytes32 _gameNameHash = keccak256(_gameName);
@@ -108,7 +109,7 @@ contract RockPaperScissors {
 	// move
 	function haveBothPlayersRevealed(string _gameName)
 		public
-		constant
+		constant // should be view
 		returns(bool)
 	{
 		bytes32 _gameNameHash = keccak256(_gameName);
@@ -120,7 +121,7 @@ contract RockPaperScissors {
 	// of "rock", "paper" or "scissors"
 	function isAllowedMove(bytes32 _moveHash)
 		public
-		constant
+		constant // should be pure
 		returns(bool)
 	{
 		return((_moveHash == ROCK) ||
@@ -146,11 +147,12 @@ contract RockPaperScissors {
 		// can't play vs yourself
 		require(msg.sender != games[_gameNameHash].player1);
 
-        // this initialization is needed if the game name is recycled
-        games[_gameNameHash].checkedForWinner = false;
         // store the new player's address
 		if(games[_gameNameHash].player1 == address(0)) {
 			games[_gameNameHash].player1 = msg.sender;
+			// this initialization is needed if the game name is recycled
+	        games[_gameNameHash].checkedForWinner = false;
+			LogGameCreated(_gameName, msg.sender);
 		} else {
 			games[_gameNameHash].player2 = msg.sender;
 		}
