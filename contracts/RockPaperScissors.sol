@@ -29,6 +29,8 @@ contract RockPaperScissors {
 	bytes32 constant SCISSORS = 0x389a2d4e358d901bfdf22245f32b4b0a401cc16a4b92155a2ee5da98273dad9a;
 
 	address owner;
+	bool paused; // allows the owner to pause everything if something big
+	             // major happens
 	// price of creating a game in Wei, per player, set by the contract owner
 	uint public gameCreationCost;
 
@@ -57,9 +59,14 @@ contract RockPaperScissors {
 	event LogGameCreated(string gameName, address playerAddress);
 	event LogPlayerDeclares(string gameName, address playerAddress);
 	event LogPlayerReveals(string gameName, address playerAddress, string move);
-	// note that winnerAddress is zero if the match is even
+	// winnerAddress is set to zero if the match is even
 	event LogWinner(string gameName, address winnerAddress);
 	event LogWithdrawal(address playerAddress, uint balance);
+
+	modifier isNotPaused {
+		require(!paused);
+		_;
+	}
 
     // Note: the cost of playing is set by the contract creator, but it may be
     // left to the player to decide.
@@ -129,6 +136,24 @@ contract RockPaperScissors {
 		       (_moveHash == SCISSORS));
 	}
 
+	function pause()
+		public
+		isNotPaused
+	{
+		require(msg.sender == owner);
+
+		paused = true;
+	}
+
+	function reprise()
+		public
+	{
+		require(msg.sender == owner);
+		require(paused);
+
+		paused = false;
+	}
+
 	// TODO: what if two different sets of players choose the same game name?
 	// By calling the playerDeclares function, a player creates a new game or
 	// joins a pre-existing one, and makes her payment. _encryptedMove is the
@@ -136,6 +161,7 @@ contract RockPaperScissors {
 	function playerDeclares(string _gameName, bytes32 _encryptedMove)
 		public
 		payable
+		isNotPaused
 		returns(bool)
 	{
 		bytes32 _gameNameHash = keccak256(_gameName);
@@ -164,6 +190,7 @@ contract RockPaperScissors {
 
 	function playerReveals(string _gameName, string _move, string _key)
 		public
+		isNotPaused
 		returns(bool)
 	{
 		bytes32 _gameNameHash = keccak256(_gameName);
@@ -194,6 +221,7 @@ contract RockPaperScissors {
 	// cost, if she is the caller
 	function playerChecks(string _gameName)
 		public
+		isNotPaused
 		returns(bool)
 	{
 		bytes32 _gameNameHash = keccak256(_gameName);
@@ -240,6 +268,7 @@ contract RockPaperScissors {
 
 	function withdraw()
 		public
+		isNotPaused
 		returns(bool)
 	{
 		require(balances[msg.sender] > 0);
