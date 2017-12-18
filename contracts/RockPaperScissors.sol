@@ -266,6 +266,8 @@ contract RockPaperScissors {
 		return(true);
 	}
 
+	// Note, this function is intentionally not subject to the owner pausing
+	// the instance.
 	function withdraw()
 		public
 		isNotPaused
