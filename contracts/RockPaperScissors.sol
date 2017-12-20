@@ -1,4 +1,4 @@
-pragma solidity ^0.4.4;
+pragma solidity ^0.4.15;
 
 contract RockPaperScissors {
 
@@ -6,8 +6,9 @@ contract RockPaperScissors {
 	//       This is would also cater for the case where a player calculates the hash of her move
 	//       wrong, or forgets her key.
 
-	// TODO: when moving to a more recent version of Solidity (>=0.4.16),
-	//       change the constant functions into view / pure
+	// TODO: the VM for the exam supports up to Solidity 0.4.15, but when moving
+	//       to a more recent version change the constant functions into view /
+	//       pure
 
 	// For testing, these are "rock", "paper" and "scissors" keccak256'ed against keys
 	// "foo" and "bar" respectively:
