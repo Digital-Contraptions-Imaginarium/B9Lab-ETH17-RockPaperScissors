@@ -7,6 +7,7 @@ var RockPaperScissors = artifacts.require("./RockPaperScissors.sol");
 module.exports = function(deployer) {
     deployer.deploy(
         RockPaperScissors,
+        10, // _gameCreationCost
         { "from": "0x1b7bd0b069309cae8aff3b382cc356432d6c96f6" } // Carol
     );
 };

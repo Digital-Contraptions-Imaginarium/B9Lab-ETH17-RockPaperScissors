@@ -1,6 +1,9 @@
 pragma solidity ^0.4.15;
 
-contract RockPaperScissors {
+import "./Owned.sol";
+import "./Stoppable.sol";
+
+contract RockPaperScissors is Owned, Stoppable {
 
 	// TODO: enable refund if the other player hasn't played after a specified number of blocks.
 	//       This is would also cater for the case where a player calculates the hash of her move
@@ -29,9 +32,6 @@ contract RockPaperScissors {
 	bytes32 constant PAPER = 0xea923ca2cdda6b54f4fb2bf6a063e5a59a6369ca4c4ae2c4ce02a147b3036a21;
 	bytes32 constant SCISSORS = 0x389a2d4e358d901bfdf22245f32b4b0a401cc16a4b92155a2ee5da98273dad9a;
 
-	address owner;
-	bool paused; // allows the owner to pause everything if something big
-	             // major happens
 	// price of creating a game in Wei, per player, set by the contract owner
 	uint public gameCreationCost;
 
@@ -64,11 +64,6 @@ contract RockPaperScissors {
 	event LogWinner(string gameName, address winnerAddress);
 	event LogWithdrawal(address playerAddress, uint balance);
 
-	modifier isNotPaused {
-		require(!paused);
-		_;
-	}
-
     // Note: the cost of playing is set by the contract creator, but it may be
     // left to the player to decide.
 	function RockPaperScissors(uint _gameCreationCost)
@@ -77,7 +72,6 @@ contract RockPaperScissors {
         // playing can't be free
 		require(_gameCreationCost > 0);
 
-		owner = msg.sender;
 		gameCreationCost = _gameCreationCost;
 	}
 
@@ -137,24 +131,6 @@ contract RockPaperScissors {
 		       (_moveHash == SCISSORS));
 	}
 
-	function pause()
-		public
-		isNotPaused
-	{
-		require(msg.sender == owner);
-
-		paused = true;
-	}
-
-	function reprise()
-		public
-	{
-		require(msg.sender == owner);
-		require(paused);
-
-		paused = false;
-	}
-
 	// TODO: what if two different sets of players choose the same game name?
 	// By calling the playerDeclares function, a player creates a new game or
 	// joins a pre-existing one, and makes her payment. _encryptedMove is the
@@ -162,7 +138,7 @@ contract RockPaperScissors {
 	function playerDeclares(string _gameName, bytes32 _encryptedMove)
 		public
 		payable
-		isNotPaused
+		onlyIfRunning
 		returns(bool)
 	{
 		bytes32 _gameNameHash = keccak256(_gameName);
@@ -191,7 +167,7 @@ contract RockPaperScissors {
 
 	function playerReveals(string _gameName, string _move, string _key)
 		public
-		isNotPaused
+		onlyIfRunning
 		returns(bool)
 	{
 		bytes32 _gameNameHash = keccak256(_gameName);
@@ -222,7 +198,7 @@ contract RockPaperScissors {
 	// cost, if she is the caller
 	function playerChecks(string _gameName)
 		public
-		isNotPaused
+		onlyIfRunning
 		returns(bool)
 	{
 		bytes32 _gameNameHash = keccak256(_gameName);
@@ -271,7 +247,6 @@ contract RockPaperScissors {
 	// the instance.
 	function withdraw()
 		public
-		isNotPaused
 		returns(bool)
 	{
 		require(balances[msg.sender] > 0);
