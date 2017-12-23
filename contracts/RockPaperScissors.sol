@@ -26,12 +26,6 @@ contract RockPaperScissors is Owned, Stoppable {
 	//   0x3268cd076d6ef66e9a96bea092564a912ccb849dd65a8bc976027fe600f47a8b
 	//
 
-	// these are the pre-calculated keccak256 of "rock", "paper" and "scissors", more convenient
-	// than doing string comparison using a library
-	bytes32 constant ROCK = 0x10977e4d68108d418408bc9310b60fc6d0a750c63ccef42cfb0ead23ab73d102;
-	bytes32 constant PAPER = 0xea923ca2cdda6b54f4fb2bf6a063e5a59a6369ca4c4ae2c4ce02a147b3036a21;
-	bytes32 constant SCISSORS = 0x389a2d4e358d901bfdf22245f32b4b0a401cc16a4b92155a2ee5da98273dad9a;
-
 	// price of creating a game in Wei, per player, set by the contract owner
 	uint public gameCreationCost;
 
@@ -39,7 +33,7 @@ contract RockPaperScissors is Owned, Stoppable {
 		// the player's move, encrypted vs some key chosen by the player
 		bytes32 encryptedMove;
 		// either of ROCK, PAPER or SCISSORS, after the reveal
-		bytes32 move;
+		string move;
 	}
 
 	struct GameStruct {
@@ -63,6 +57,14 @@ contract RockPaperScissors is Owned, Stoppable {
 	// winnerAddress is set to zero if the match is even
 	event LogWinner(string gameName, address winnerAddress);
 	event LogWithdrawal(address playerAddress, uint balance);
+
+	function areStringsEqual(string s1, string s2)
+		public
+		constant
+		returns(bool areEqual)
+	{
+		return(keccak256(s1) == keccak256(s2));
+	}
 
     // Note: the cost of playing is set by the contract creator, but it may be
     // left to the player to decide.
@@ -115,20 +117,20 @@ contract RockPaperScissors is Owned, Stoppable {
 		returns(bool)
 	{
 		bytes32 _gameNameHash = keccak256(_gameName);
-		return((games[_gameNameHash].players[games[_gameNameHash].player1].move != 0x0) &&
-			   (games[_gameNameHash].players[games[_gameNameHash].player2].move != 0x0));
+		return(!areStringsEqual(games[_gameNameHash].players[games[_gameNameHash].player1].move, "") &&
+			   !areStringsEqual(games[_gameNameHash].players[games[_gameNameHash].player2].move, ""));
 	}
 
 	// returns true if the specified keccak256 corresponds to the keccak256
 	// of "rock", "paper" or "scissors"
-	function isAllowedMove(bytes32 _moveHash)
+	function isAllowedMove(string _move)
 		public
 		constant // should be pure
 		returns(bool)
 	{
-		return((_moveHash == ROCK) ||
-		       (_moveHash == PAPER) ||
-		       (_moveHash == SCISSORS));
+		return(areStringsEqual(_move, "rock") ||
+		       areStringsEqual(_move, "paper") ||
+		       areStringsEqual(_move, "scissors"));
 	}
 
 	// TODO: what if two different sets of players choose the same game name?
@@ -171,23 +173,22 @@ contract RockPaperScissors is Owned, Stoppable {
 		returns(bool)
 	{
 		bytes32 _gameNameHash = keccak256(_gameName);
-		bytes32 _moveHash = keccak256(_move);
 
 		// the caller is one of the known players
 		require(isPlayerKnown(_gameName));
-        // the caller has not revealed already (don't waste gas!)
-        require(games[_gameNameHash].players[msg.sender].move == 0x0);
+        // the caller has not revealed already
+        require(areStringsEqual(games[_gameNameHash].players[msg.sender].move, ""));
 		// the player can't reveal her move until everybody has declared it
 		// first
 		// TODO: won't this waste the player's gas if she keeps trying? Do I
 		//       need to care?
 		require(haveBothPlayersDeclared(_gameName));
 		// _move is one of "rock", "paper" and "scissors"
-		require(isAllowedMove(_moveHash));
+		require(isAllowedMove(_move));
 		// the player has not cheated in declaring her original move
 		require(games[_gameNameHash].players[msg.sender].encryptedMove == keccak256(_move, _key));
 
-		games[_gameNameHash].players[msg.sender].move = _moveHash;
+		games[_gameNameHash].players[msg.sender].move = _move;
 		LogPlayerReveals(_gameName, msg.sender, _move);
 		return(true);
 	}
@@ -215,28 +216,20 @@ contract RockPaperScissors is Owned, Stoppable {
 		// does the actual check
 		address theOtherPlayer = (msg.sender == games[_gameNameHash].player1) ?
 			games[_gameNameHash].player2 : games[_gameNameHash].player1;
-		bool even = (games[_gameNameHash].players[msg.sender].move ==
-			games[_gameNameHash].players[theOtherPlayer].move);
+		bool even = areStringsEqual(games[_gameNameHash].players[msg.sender].move,
+        	games[_gameNameHash].players[theOtherPlayer].move);
 		address winner = (
-				!even && // this is just to stop calculating immediately if even
-				((games[_gameNameHash].players[msg.sender].move == ROCK) &&
-				 (games[_gameNameHash].players[theOtherPlayer].move == SCISSORS)) ||
-			 	((games[_gameNameHash].players[msg.sender].move == PAPER) &&
-	 			 (games[_gameNameHash].players[theOtherPlayer].move == ROCK)) ||
-			 	((games[_gameNameHash].players[msg.sender].move == SCISSORS) &&
-	 			 (games[_gameNameHash].players[theOtherPlayer].move == ROCK))
-			) ? msg.sender : theOtherPlayer;
+			!even && // this is just to stop calculating immediately if even
+			(areStringsEqual(games[_gameNameHash].players[msg.sender].move, "rock") &&
+			 areStringsEqual(games[_gameNameHash].players[theOtherPlayer].move, "scissors")) ||
+		 	(areStringsEqual(games[_gameNameHash].players[msg.sender].move, "paper") &&
+ 			 areStringsEqual(games[_gameNameHash].players[theOtherPlayer].move, "rock")) ||
+		 	(areStringsEqual(games[_gameNameHash].players[msg.sender].move, "scissors") &&
+ 			 areStringsEqual(games[_gameNameHash].players[theOtherPlayer].move, "rock"))
+		) ? msg.sender : theOtherPlayer;
 		// makes the game name available again
- 		games[_gameNameHash].player1 = address(0);
- 		games[_gameNameHash].player2 = address(0);
- 		games[_gameNameHash].players[games[_gameNameHash].player1].encryptedMove = 0x0;
- 		games[_gameNameHash].players[games[_gameNameHash].player2].encryptedMove = 0x0;
- 		games[_gameNameHash].players[games[_gameNameHash].player1].move = 0x0;
- 		games[_gameNameHash].players[games[_gameNameHash].player2].move = 0x0;
+		delete games[_gameNameHash];
 		// assigns the prize, or returns the money if even
-		// TODO: it would be nice for the original creator of the contract to
-		//       keep a little commission, as a way for the players to say
-		//       thanks :-D
 		balances[winner] += (even ? uint(1) : uint(2)) * gameCreationCost;
 		balances[theOtherPlayer] += (even ? uint(1) : uint(0)) * gameCreationCost;
 		LogWinner(_gameName, even ? address(0) : winner);
